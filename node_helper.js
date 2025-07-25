@@ -1,8 +1,6 @@
 /*
  * MMM-SunnyPortalEnnexos
- * Updated for Ennexos SunnyPortal with cookie-based authentication
- * 
- * Based on original MMM-Sunnyportal by linuxtuxie
+ * Updated for Ennexos SunnyPortal with cookie-based authentication based on original MMM-Sunnyportal by linuxtuxie
  * MIT Licensed.
  */
 
@@ -142,19 +140,22 @@ module.exports = NodeHelper.create({
                         const solarData = self.parseSolarData(response.data, endpoint);
                         
                         if (solarData && self.hasMeaningfulData(solarData)) {
-                            console.log(`[${self.name}] ✅ Solar data extracted successfully`);
-                            self.sendSocketNotification("SOLAR_DATA", solarData);
+                            console.log(`[${self.name}] ✅ Solar data extracted successfully from JSON`);
+                            self.sendSocketNotification("SOLAR_DATA_SUCCESS", solarData);
                             return;
                         } else {
                             console.log(`[${self.name}] ℹ️ No meaningful solar data in JSON response`);
                         }
                     } else if (contentType.includes('text/html')) {
                         // HTML response - try to extract embedded data
+                        console.log(`[${self.name}] 🔍 Processing HTML response from ${endpoint}...`);
                         const extractedData = self.extractDataFromHTML(response.data, endpoint);
                         if (extractedData && self.hasMeaningfulData(extractedData)) {
-                            console.log(`[${self.name}] ✅ Solar data extracted from HTML`);
-                            self.sendSocketNotification("SOLAR_DATA", extractedData);
+                            console.log(`[${self.name}] ✅ Solar data extracted successfully from HTML`);
+                            self.sendSocketNotification("SOLAR_DATA_SUCCESS", extractedData);
                             return;
+                        } else {
+                            console.log(`[${self.name}] ⚠️ HTML processed but no meaningful solar data found`);
                         }
                     }
                 } else if (response.status === 401 || response.status === 403) {
@@ -252,42 +253,92 @@ module.exports = NodeHelper.create({
     },
 
     /**
-     * Extract data from HTML content (look for embedded JSON)
+     * Extract data from HTML content (look for embedded JSON and text patterns)
      */
     extractDataFromHTML: function(html, endpoint) {
         try {
+            console.log(`[${this.name}] 🔍 Analyzing HTML content (${html.length} chars) from ${endpoint}`);
+            
+            // Look for solar data in text content (numbers with units)
+            const textPatterns = [
+                // Power patterns: "1234 W", "12.34 kW", "1,234 W"
+                /(\d+(?:[\.,]\d+)*)\s*k?W(?:att)?/gi,
+                // Energy patterns: "123.45 kWh", "1,234 kWh"
+                /(\d+(?:[\.,]\d+)*)\s*k?Wh/gi,
+                // Voltage patterns: "234.5 V"
+                /(\d+(?:[\.,]\d+)*)\s*V(?:olt)?/gi,
+                // Current patterns: "12.34 A"
+                /(\d+(?:[\.,]\d+)*)\s*A(?:mp)?/gi,
+                // Percentage patterns: "85.5%", "100 %"
+                /(\d+(?:[\.,]\d+)*)\s*%/gi
+            ];
+
+            const foundValues = {};
+            let valueCount = 0;
+
+            // Search for values in text
+            for (const pattern of textPatterns) {
+                const matches = html.matchAll(pattern);
+                for (const match of matches) {
+                    const value = parseFloat(match[1].replace(',', '.'));
+                    if (!isNaN(value) && value > 0) {
+                        const unit = match[0].match(/[a-zA-Z%]+/)[0];
+                        const key = `value_${valueCount}_${unit.toLowerCase()}`;
+                        foundValues[key] = value;
+                        valueCount++;
+                    }
+                }
+            }
+
+            console.log(`[${this.name}] 📊 Found ${valueCount} potential values in HTML text`);
+
             // Look for various JSON data patterns in HTML
             const jsonPatterns = [
                 /window\.data\s*=\s*(\{.*?\});/s,
                 /window\.initialData\s*=\s*(\{.*?\});/s,
+                /window\.APP_DATA\s*=\s*(\{.*?\});/s,
                 /var\s+data\s*=\s*(\{.*?\});/s,
                 /const\s+data\s*=\s*(\{.*?\});/s,
                 /let\s+data\s*=\s*(\{.*?\});/s,
                 /"data":\s*(\{.*?\})/s,
-                /data-solar[^>]*>([^<]+)</gi,
-                /data-power[^>]*>([^<]+)</gi
+                /data-value="([^"]+)"/gi,
+                /data-power="([^"]+)"/gi,
+                /data-energy="([^"]+)"/gi,
+                /<script[^>]*>[\s\S]*?(\{[\s\S]*?"power"[\s\S]*?\})[\s\S]*?<\/script>/gi,
+                /<script[^>]*>[\s\S]*?(\{[\s\S]*?"energy"[\s\S]*?\})[\s\S]*?<\/script>/gi
             ];
             
             for (const pattern of jsonPatterns) {
-                const matches = html.match(pattern);
+                const matches = html.matchAll ? html.matchAll(pattern) : [html.match(pattern)].filter(Boolean);
                 if (matches) {
                     for (const match of matches) {
+                        if (!match[1]) continue;
+                        
                         try {
                             let jsonData;
-                            if (match.includes('{')) {
-                                const jsonStr = match.match(/\{.*\}/s)?.[0];
-                                if (jsonStr) {
-                                    jsonData = JSON.parse(jsonStr);
+                            let jsonStr = match[1];
+                            
+                            // Clean up JSON string
+                            if (jsonStr.includes('{')) {
+                                // Extract just the JSON object
+                                const startBrace = jsonStr.indexOf('{');
+                                const endBrace = jsonStr.lastIndexOf('}');
+                                if (startBrace >= 0 && endBrace > startBrace) {
+                                    jsonStr = jsonStr.substring(startBrace, endBrace + 1);
                                 }
+                                
+                                // Try to parse as JSON
+                                jsonData = JSON.parse(jsonStr);
                             } else {
-                                // Simple value extraction
-                                const value = parseFloat(match);
+                                // Simple value
+                                const value = parseFloat(jsonStr);
                                 if (!isNaN(value)) {
-                                    jsonData = { value: value };
+                                    foundValues[`json_value_${Object.keys(foundValues).length}`] = value;
                                 }
                             }
                             
                             if (jsonData) {
+                                console.log(`[${this.name}] 🎯 Found JSON data in HTML:`, Object.keys(jsonData));
                                 const solarData = this.parseSolarData(jsonData, endpoint + '-html');
                                 if (solarData && this.hasMeaningfulData(solarData)) {
                                     return solarData;
@@ -295,10 +346,78 @@ module.exports = NodeHelper.create({
                             }
                         } catch (e) {
                             // Continue to next pattern
+                            console.log(`[${this.name}] ⚠️ JSON parse failed for pattern, continuing...`);
                         }
                     }
                 }
             }
+
+            // Look for table data with solar information
+            const tablePattern = /<table[\s\S]*?<\/table>/gi;
+            const tables = html.match(tablePattern);
+            if (tables) {
+                console.log(`[${this.name}] 🔍 Found ${tables.length} tables in HTML`);
+                
+                for (const table of tables) {
+                    // Extract numbers from table cells
+                    const cellPattern = /<td[^>]*>(.*?)<\/td>/gi;
+                    const cells = table.matchAll ? table.matchAll(cellPattern) : [];
+                    
+                    for (const cell of cells) {
+                        const cellText = cell[1].replace(/<[^>]*>/g, '').trim();
+                        const numberMatch = cellText.match(/(\d+(?:[\.,]\d+)*)\s*(k?W[h]?|V|A|%)/i);
+                        if (numberMatch) {
+                            const value = parseFloat(numberMatch[1].replace(',', '.'));
+                            const unit = numberMatch[2].toLowerCase();
+                            if (!isNaN(value) && value > 0) {
+                                foundValues[`table_${unit}_${Object.keys(foundValues).length}`] = value;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // If we found any values, return them
+            if (Object.keys(foundValues).length > 0) {
+                console.log(`[${this.name}] ✅ Extracted ${Object.keys(foundValues).length} values from HTML:`, foundValues);
+                
+                // Create a more structured solar data object
+                const solarData = {
+                    _endpoint: endpoint,
+                    _timestamp: new Date().toISOString(),
+                    _status: 'success'
+                };
+                
+                // Map found values to standard names
+                for (const [key, value] of Object.entries(foundValues)) {
+                    if (key.includes('kw') && !key.includes('kwh')) {
+                        solarData.currentPower = value * (key.includes('kw') ? 1000 : 1);
+                    } else if (key.includes('kwh')) {
+                        if (!solarData.dailyEnergy || value > solarData.dailyEnergy) {
+                            solarData.dailyEnergy = value;
+                        }
+                    } else if (key.includes('w') && !key.includes('wh')) {
+                        solarData.currentPower = value;
+                    } else if (key.includes('v')) {
+                        solarData.voltage = value;
+                    } else if (key.includes('a')) {
+                        solarData.current = value;
+                    } else if (key.includes('%')) {
+                        solarData.efficiency = value;
+                    }
+                    
+                    // Also keep the raw value
+                    solarData[key] = value;
+                }
+                
+                return solarData;
+            }
+
+            console.log(`[${this.name}] ⚠️ No solar data patterns found in HTML content`);
+            
+            // Debug: show a sample of the HTML to understand its structure
+            const htmlSample = html.substring(0, 1000);
+            console.log(`[${this.name}] 📄 HTML sample (first 1000 chars):`, htmlSample);
             
             return null;
         } catch (error) {

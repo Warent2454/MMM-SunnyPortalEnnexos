@@ -73,6 +73,95 @@ npm install
 
 ---
 
+## 🔄 Updating the Module
+
+### When the Git Repository is Updated
+
+To update your MagicMirror module when new changes are available in the repository:
+
+#### Method 1: Quick Update
+```bash
+cd ~/MagicMirror/modules/MMM-SunnyPortalEnnexos
+git pull origin master
+npm install
+```
+
+#### Method 2: Safe Update with Backup
+```bash
+cd ~/MagicMirror/modules/MMM-SunnyPortalEnnexos
+
+# Backup your cookies file (important!)
+cp cookies.txt cookies_backup.txt
+
+# Pull latest changes
+git pull origin master
+
+# Install any new dependencies
+npm install
+
+# Restore your cookies if needed
+cp cookies_backup.txt cookies.txt
+```
+
+#### Method 3: Complete Reinstall
+If you encounter issues, perform a clean reinstall:
+
+```bash
+cd ~/MagicMirror/modules
+
+# Backup your cookies file first!
+cp MMM-SunnyPortalEnnexos/cookies.txt ~/cookies_backup.txt
+
+# Remove old installation
+rm -rf MMM-SunnyPortalEnnexos
+
+# Fresh install
+git clone https://github.com/Warent2454/MMM-SunnyPortalEnnexos.git
+cd MMM-SunnyPortalEnnexos
+npm install
+
+# Restore your cookies
+cp ~/cookies_backup.txt cookies.txt
+```
+
+### After Updating
+
+1. **Restart MagicMirror** to apply changes:
+   ```bash
+   pm2 restart MagicMirror
+   # OR if running manually:
+   # Navigate to MagicMirror directory and run: npm start
+   ```
+
+2. **Check the logs** for any errors:
+   ```bash
+   pm2 logs MagicMirror
+   # OR check the browser console if running in dev mode
+   ```
+
+3. **Verify functionality** by checking that solar data is displayed correctly
+
+### Important Notes
+
+- 🍪 **Always backup your `cookies.txt` file** before updating
+- 🔄 **Check the [changelog](#version-history)** for breaking changes
+- ⚠️ **Some updates may require cookie regeneration** if authentication changes
+- 📝 **Review new configuration options** that might be available
+
+### Troubleshooting Updates
+
+If the module stops working after an update:
+
+1. **Check your `cookies.txt` file** is still present and valid
+2. **Regenerate cookies** from your browser if authentication fails
+3. **Check for new required configuration** options in the documentation
+4. **Review error logs** for specific issues:
+   ```bash
+   tail -f ~/.pm2/logs/MagicMirror-error.log
+   ```
+
+---
+
 ## 🍪 Cookie Setup
 
 The module uses cookie-based authentication for reliable access to Ennexos data.
@@ -381,6 +470,39 @@ For issues, questions, or support:
 | 2.0.0 | 2025-07-25 | Complete rebuild for Ennexos platform |
 | 1.5.0 | 2025-07-24 | Updated for new SunnyPortal |
 | 1.x.x | Earlier | Original SunnyPortal versions |
+
+---
+
+## ⚡ Quick Reference
+
+### 🔄 Update Commands
+```bash
+# Quick update
+cd ~/MagicMirror/modules/MMM-SunnyPortalEnnexos && git pull && npm install
+
+# Restart MagicMirror
+pm2 restart MagicMirror
+
+# Check logs
+pm2 logs MagicMirror
+```
+
+### 🍪 Cookie File Location
+```bash
+~/MagicMirror/modules/MMM-SunnyPortalEnnexos/cookies.txt
+```
+
+### 🛠️ Common Troubleshooting
+```bash
+# Backup cookies before any changes
+cp cookies.txt cookies_backup.txt
+
+# View real-time logs
+tail -f ~/.pm2/logs/MagicMirror-error.log
+
+# Full restart
+pm2 stop MagicMirror && pm2 start MagicMirror
+```
 
 ---
 

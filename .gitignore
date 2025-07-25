@@ -1,3 +1,8 @@
 node_modules/
 package-lock.json
-
+.env
+cookies.txt
+cookie-monitor.json
+api-endpoints-results.json
+dashboard-content-sample.html
+solar-data-simulation.html

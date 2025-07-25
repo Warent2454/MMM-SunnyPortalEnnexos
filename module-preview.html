@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MMM-SunnyPortalEnnexos Preview</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #000;
+            color: #fff;
+            padding: 20px;
+            margin: 0;
+        }
+        .magic-mirror-preview {
+            background: #111;
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .sunny-portal-wrapper {
+            text-align: left;
+        }
+        .sunny-portal-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-align: center;
+            color: #ffa500;
+        }
+        .sunny-portal-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            padding: 8px;
+            background: rgba(0, 255, 0, 0.1);
+            border-radius: 5px;
+        }
+        .sunny-portal-status-icon {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+        .sunny-portal-status-text {
+            color: #90EE90;
+        }
+        .sunny-portal-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .sunny-portal-table td {
+            padding: 5px 10px;
+            border-bottom: 1px solid #333;
+        }
+        .sunny-portal-label {
+            color: #ccc;
+            font-weight: normal;
+        }
+        .sunny-portal-value {
+            color: #fff;
+            font-weight: bold;
+            text-align: right;
+        }
+        .category-header {
+            background: #222;
+            font-weight: bold;
+            color: #ffa500;
+            text-align: center;
+        }
+        .spacer {
+            height: 5px;
+        }
+        .sunny-portal-update-info {
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            margin-top: 15px;
+        }
+        .preview-info {
+            background: #222;
+            border: 1px solid #555;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .preview-info h3 {
+            color: #ffa500;
+            margin-top: 0;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .status-success { background: #90EE90; }
+        .status-warning { background: #FFD700; }
+        .status-error { background: #FF6B6B; }
+    </style>
+</head>
+<body>
+    <div class="preview-info">
+        <h3>🪞 MagicMirror Module Preview</h3>
+        <p><span class="status-indicator status-success"></span>Authentication: <strong>Success</strong></p>
+        <p><span class="status-indicator status-success"></span>Data Endpoints: <strong>3 Working</strong></p>
+        <p><span class="status-indicator status-warning"></span>Data Type: <strong>HTML (needs parsing)</strong></p>
+        <p>This shows how your module would appear on the MagicMirror</p>
+    </div>
+
+    <div class="magic-mirror-preview">
+        <div class="sunny-portal-wrapper">
+            <div class="sunny-portal-title">☀️ Solar Portal</div>
+            
+            <div class="sunny-portal-status">
+                <span class="sunny-portal-status-icon">✅</span>
+                <span class="sunny-portal-status-text">Connected to Ennexos</span>
+            </div>
+
+            <table class="sunny-portal-table">
+                <!-- Power Section -->
+                <tr class="category-header">
+                    <td colspan="2">⚡ Power</td>
+                </tr>
+                <tr>
+                    <td class="sunny-portal-label">Current Power</td>
+                    <td class="sunny-portal-value">2.5 kW</td>
+                </tr>
+                <tr>
+                    <td class="sunny-portal-label">Peak Power Today</td>
+                    <td class="sunny-portal-value">4.8 kW</td>
+                </tr>
+                
+                <!-- Spacer -->
+                <tr class="spacer"><td colspan="2"></td></tr>
+                
+                <!-- Energy Section -->
+                <tr class="category-header">
+                    <td colspan="2">🔋 Energy</td>
+                </tr>
+                <tr>
+                    <td class="sunny-portal-label">Today's Yield</td>
+                    <td class="sunny-portal-value">28.4 kWh</td>
+                </tr>
+                <tr>
+                    <td class="sunny-portal-label">Total Yield</td>
+                    <td class="sunny-portal-value">15.2 MWh</td>
+                </tr>
+                <tr>
+                    <td class="sunny-portal-label">This Month</td>
+                    <td class="sunny-portal-value">485.7 kWh</td>
+                </tr>
+                
+                <!-- Spacer -->
+                <tr class="spacer"><td colspan="2"></td></tr>
+                
+                <!-- Details Section -->
+                <tr class="category-header">
+                    <td colspan="2">📊 Details</td>
+                </tr>
+                <tr>
+                    <td class="sunny-portal-label">Status</td>
+                    <td class="sunny-portal-value">Online</td>
+                </tr>
+                <tr>
+                    <td class="sunny-portal-label">Data Source</td>
+                    <td class="sunny-portal-value">Ennexos Portal</td>
+                </tr>
+                <tr>
+                    <td class="sunny-portal-label">Endpoints Found</td>
+                    <td class="sunny-portal-value">3 Working</td>
+                </tr>
+            </table>
+
+            <div class="sunny-portal-update-info">
+                Last update: 3:42:15 PM
+            </div>
+        </div>
+    </div>
+
+    <div class="preview-info" style="margin-top: 20px;">
+        <h3>📋 Next Steps</h3>
+        <p><strong>Good News:</strong> Your cookies are working! ✅</p>
+        <p><strong>Current Status:</strong> Getting HTML data (50KB from 3 endpoints)</p>
+        <p><strong>What's Needed:</strong> Parse the HTML to extract actual solar values</p>
+        <br>
+        <p><strong>To see real data:</strong></p>
+        <ol style="text-align: left; display: inline-block;">
+            <li>Deploy the updated MagicMirror module</li>
+            <li>The module will automatically parse the HTML</li>
+            <li>Real solar data will replace the sample values above</li>
+        </ol>
+    </div>
+
+    <script>
+        // Simulate live updates
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            const updateElement = document.querySelector('.sunny-portal-update-info');
+            if (updateElement) {
+                updateElement.textContent = `Last update: ${timeString}`;
+            }
+        }
+        
+        // Update time every second
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Simulate data changes
+        function simulateDataUpdate() {
+            const powerElement = document.querySelector('td.sunny-portal-value');
+            if (powerElement) {
+                const currentPower = parseFloat(powerElement.textContent);
+                const variation = (Math.random() - 0.5) * 0.5; // ±0.25 kW variation
+                const newPower = Math.max(0, currentPower + variation);
+                powerElement.textContent = `${newPower.toFixed(1)} kW`;
+            }
+        }
+        
+        // Update data every 5 seconds
+        setInterval(simulateDataUpdate, 5000);
+    </script>
+</body>
+</html>

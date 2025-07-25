@@ -1,6 +1,6 @@
 {
   "name": "mmm-sunnyportal",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Display your SunnyPortal Solar Panel output",
   "main": "MMM-SunnyPortal.js",
   "scripts": {
@@ -18,8 +18,11 @@
   },
   "homepage": "https://github.com/linuxtuxie/MMM-SunnyPortal#readme",
   "dependencies": {
-    "chart.js": "^2.9.3",
+    "axios": "^1.6.0",
+    "chart.js": "^4.4.0",
+    "dotenv": "^16.3.0",
     "flow": "^0.2.3",
+    "puppeteer": "^21.11.0",
     "request": "^2.88.2"
   },
   "devDependencies": {

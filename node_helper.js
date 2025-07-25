@@ -23,14 +23,15 @@ var flow = require('flow');
 //var sslkeylog = require('sslkeylog');
 //sslkeylog.setLog('/tmp/sslkey.log').hookAll();
 
-// The SunnyPortal website is very picky about which Browser versions it accepts, here I am using Firefox 84.0.1 (64bit) for Windows
-var USERAGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:84.0) Gecko/20100101 Firefox/84.0';
-var LOGIN_URL = '/Templates/Start.aspx';
-var OPEN_INVERTER_URL = '/FixedPages/InverterSelection.aspx';
-var SET_FILE_DATE_URL = '/FixedPages/InverterSelection.aspx';
-var CURRENT_PRODUCTION_URL = '/Dashboard?_=1';
-var DOWNLOAD_RESULTS_URL = '/Templates/DownloadDiagram.aspx?down=diag';
-var NEXT_URL = ['/FixedPages/Dashboard.aspx', '/Templates/UserProfile.aspx', '/FixedPages/HoManEnergyRedesign.aspx', '/FixedPages/PlantProfile.aspx', '/FixedPages/HoManLive.aspx', '/Homan/ConsumerBalance#'];
+// The Ennexos SunnyPortal website - updated for the new portal
+var USERAGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0';
+var LOGIN_URL = '/login';
+var DASHBOARD_URL = '/dashboard';
+var API_BASE_URL = '/api/v1';
+var CURRENT_PRODUCTION_URL = '/api/v1/powerflow/livedata';
+var HISTORICAL_DATA_URL = '/api/v1/plants/{plantId}/measurements';
+var PLANTS_URL = '/api/v1/plants';
+var NEXT_URL = ['/dashboard', '/plants', '/monitoring'];
 
 /**
  * Sunny Portal API Node Library
@@ -56,217 +57,333 @@ var SunnyPortal = function(opts) {
 	var password = opts.password;
 	var plantOID = "";
 
-	var _login = function(datetype,callback) {
+	var _login = function(datetype, callback) {
 		var jar = request.jar(); // create new cookie jar
-		var viewstate = null;
-		var viewstategenerator = null;
-		var clientbrowserversion = null;
 		
 		var requestOpts = {
 			headers : {
-				// We need to simulate a Browser which the SunnyPortal accepts...
-				'User-Agent' : USERAGENT,
+				'User-Agent': USERAGENT,
+				'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+				'Accept-Language': 'en-US,en;q=0.5',
+				'Accept-Encoding': 'gzip, deflate',
+				'Connection': 'keep-alive'
 			},
-			jar : jar,
-			gzip : true,
-			agentOptions : {
+			jar: jar,
+			gzip: true,
+			followRedirect: true,
+			agentOptions: {
 				rejectUnauthorized: false
-			},
+			}
 		};
-		console.log("[_login] Trying to login to " + url + LOGIN_URL + "?ReturnUrl=%2f for accessing " + datetype + " data");
-		// Let's first fetch the VIEWSTATE, VIEWSTATEGENERATOR & ClientBrowserVersion parameter values
-		request.get(url + LOGIN_URL + "?ReturnUrl=%2f", requestOpts, function (err, httpResponse, body) {
+
+		console.log("[_login] Starting SMA/Ennexos authentication flow for " + datetype + " data");
+		
+		// Step 1: Access Ennexos portal to get redirect to SMA
+		request.get(url + '/login', requestOpts, function (err, httpResponse, body) {
 			if (err) {
-				console.error('[_login] Unable to fetch login page: ', err);
+				console.error('[_login] Failed to access Ennexos portal: ', err);
 				callback(err);
-				return ;
+				return;
 			}
-			console.log("[_login] Cookie Value: " + jar.getCookieString(url));
-			// Filter out both values for the VIEWSTATE & VIEWSTATEGENERATOR hidden parameter
-			viewstate = body.match(/<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="(.*)" \/>/)[1];
-			viewstategenerator = body.match(/<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="(.*)" \/>/)[1];
-			// Filter out the ClientBrowserVersion value, we also need this one when we perform the POST request
-			clientbrowserversion = body.match(/\$\('\#ClientBrowserVersion'\).val\('(.*)'\);\/\/]]\>/)[1]
 
-			console.log("[_login] Fetched VIEWSTATE value: " + viewstate);
-			console.log("[_login] Fetched VIEWSTATEGENERATOR value: " + viewstategenerator);
-			console.log("[_login] Fetched ClientBrowserVersion: " + clientbrowserversion);
+			console.log("[_login] Ennexos portal response status: " + httpResponse.statusCode);
 			
-			requestOpts = {
-				headers : {
-					// We need to simulate a Browser which the SunnyPortal accepts...here I am Using Firefox 82.0.3 (64-bit) for Windows
-					'User-Agent' : USERAGENT,
-				},
-				jar : jar,
-				gzip : true,
-				agentOptions : {
-					rejectUnauthorized : false
-				},
-				form : {
-					__VIEWSTATE : viewstate,
-					__VIEWSTATEGENERATOR : viewstategenerator,
-					ctl00$ContentPlaceHolder1$Logincontrol1$txtUserName : username,
-					ctl00$ContentPlaceHolder1$Logincontrol1$txtPassword : password,
-					ctl00$ContentPlaceHolder1$Logincontrol1$LoginBtn : 'Login',
-					ctl00$ContentPlaceHolder1$hiddenLanguage : 'en-us',
-					ctl00$ContentPlaceHolder1$Logincontrol1$ServiceAccess : 'true',
-					ctl00$ContentPlaceHolder1$Logincontrol1$RedirectURL : '',
-					ctl00$ContentPlaceHolder1$Logincontrol1$RedirectPlant : '',
-					ctl00$ContentPlaceHolder1$Logincontrol1$RedirectPage : '',
-					ctl00$ContentPlaceHolder1$Logincontrol1$RedirectDevice : '',
-					ctl00$ContentPlaceHolder1$Logincontrol1$RedirectOther : '',
-					ctl00$ContentPlaceHolder1$Logincontrol1$PlantIdentifier : '',
-					__EVENTTARGET : '',
-					__EVENTARGUMENT : '',
-					ClientBrowserVersion : clientbrowserversion,
-				},	
-			};
-
-			// Now Let's login by Posting the data
-			request.post(url + LOGIN_URL + "?ReturnUrl=%2fFixedPages%2fDashboard.aspx", requestOpts, function (err, httpResponse, body) {
-				if (err) {
-					console.error('[_login] login failed: ', err);
-					callback(err);
-					return ;
-				}
-
-				// Hack to check for login. Should forward to one of the locations listed in the NEXT_URL variable.
-				var loggedin = false;
-				for (var i = 0; i < NEXT_URL.length; i++) {
-					if (httpResponse.headers.location && httpResponse.headers.location === NEXT_URL[i]) {
-						loggedIn = true;
-						console.log("[_login] SUCCESSFULLY LOGGED IN TO " + NEXT_URL[i]);
-						callback(err, jar);
-						break;
-					}
-				}
-				//console.log("Cookie Value after login: " + jar.getCookieString(url));
-				if (loggedIn === false) {
-					console.log("[_login] Login Failed, no redirect to any of the known url's: " + NEXT_URL.join(", "));
-					console.log("[_login] You are being redirected to the yet unkown url: " + httpResponse.headers.location);
-					loginerror = body.match(/<span id="ctl00_ContentPlaceHolder1_Logincontrol1_ErrorLabel" class="base-error">(.*)<\/span>/)[1]
-					console.log("[_login] Website Error Message: " + loginerror);
-					callback(new Error("[_login] Login Failed, no redirect to any of the known url's: " + NEXT_URL.join(", ")));
-				} 
-			});
+			// Check if we got redirected to SMA
+			var finalUrl = httpResponse.request.uri.href;
+			console.log("[_login] Final URL after redirects: " + finalUrl);
+			
+			if (finalUrl.includes('account.sma.energy')) {
+				console.log("[_login] Redirected to SMA authentication - proceeding with SMA login");
+				_performSMALogin(jar, finalUrl, body, datetype, callback);
+			} else {
+				console.log("[_login] No redirect to SMA detected - trying direct authentication");
+				_tryDirectAuth(jar, body, datetype, callback);
+			}
 		});
 	};
 
-	var _openInverter = function(jar, callback) {
-
-		var requestOpts = {
-			headers : {
-				// We need to simulate a Browser which the SunnyPortal accepts...here I am Using Firefox 82.0.3 (64-bit) for Windows
-				'User-Agent' : USERAGENT,	
+	var _performSMALogin = function(jar, smaUrl, smaPageBody, datetype, callback) {
+		console.log("[_performSMALogin] Analyzing SMA login page");
+		
+		// Extract form data from SMA login page
+		var formAction = '';
+		var hiddenFields = {};
+		
+		// Extract form action URL
+		var actionMatch = smaPageBody.match(/<form[^>]*action=["']([^"']*)["']/i);
+		if (actionMatch) {
+			formAction = actionMatch[1];
+			if (!formAction.startsWith('http')) {
+				formAction = 'https://account.sma.energy' + formAction;
+			}
+		} else {
+			formAction = 'https://account.sma.energy/login';
+		}
+		
+		console.log("[_performSMALogin] Form action URL: " + formAction);
+		
+		// Extract hidden form fields
+		var hiddenInputMatches = smaPageBody.matchAll(/<input[^>]*type=["']hidden["'][^>]*>/gi);
+		for (const match of hiddenInputMatches) {
+			var nameMatch = match[0].match(/name=["']([^"']*)["']/i);
+			var valueMatch = match[0].match(/value=["']([^"']*)["']/i);
+			if (nameMatch && valueMatch) {
+				hiddenFields[nameMatch[1]] = valueMatch[1];
+				console.log("[_performSMALogin] Found hidden field: " + nameMatch[1]);
+			}
+		}
+		
+		// Prepare login form data
+		var formData = Object.assign({
+			username: username,
+			password: password,
+			email: username, // Some forms use email field
+			login: username  // Some forms use login field
+		}, hiddenFields);
+		
+		var loginOpts = {
+			headers: {
+				'User-Agent': USERAGENT,
+				'Content-Type': 'application/x-www-form-urlencoded',
+				'Referer': smaUrl,
+				'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
 			},
-			method : 'GET',
-			jar : jar,
-			gzip : true,
-			agentOptions : {
+			jar: jar,
+			gzip: true,
+			followRedirect: true,
+			form: formData,
+			agentOptions: {
+				rejectUnauthorized: false
+			}
+		};
+		
+		console.log("[_performSMALogin] Submitting login form to SMA");
+		request.post(formAction, loginOpts, function (err, httpResponse, body) {
+			if (err) {
+				console.error('[_performSMALogin] SMA login failed: ', err);
+				callback(err);
+				return;
+			}
+			
+			console.log("[_performSMALogin] SMA login response status: " + httpResponse.statusCode);
+			var finalUrl = httpResponse.request.uri.href;
+			console.log("[_performSMALogin] Final URL after SMA login: " + finalUrl);
+			
+			// Check if we're back at Ennexos (successful login)
+			if (finalUrl.includes('ennexos.sunnyportal.com') || httpResponse.statusCode === 200) {
+				console.log("[_performSMALogin] Successfully authenticated with SMA!");
+				callback(null, jar);
+			} else if (body.includes('error') || body.includes('invalid')) {
+				console.log("[_performSMALogin] SMA login failed - invalid credentials");
+				callback(new Error('Invalid SMA credentials'));
+			} else {
+				console.log("[_performSMALogin] Unexpected response from SMA login");
+				callback(new Error('SMA authentication flow failed'));
+			}
+		});
+	};
+
+	var _tryDirectAuth = function(jar, pageBody, datetype, callback) {
+		console.log("[_tryDirectAuth] Attempting direct Ennexos authentication");
+		
+		// This is a fallback - try to find a direct login form on Ennexos
+		var formAction = '';
+		var actionMatch = pageBody.match(/<form[^>]*action=["']([^"']*)["']/i);
+		if (actionMatch) {
+			formAction = url + actionMatch[1];
+		} else {
+			formAction = url + '/auth/login';
+		}
+		
+		var formData = {
+			username: username,
+			password: password
+		};
+		
+		var authOpts = {
+			headers: {
+				'User-Agent': USERAGENT,
+				'Content-Type': 'application/x-www-form-urlencoded'
+			},
+			jar: jar,
+			gzip: true,
+			form: formData,
+			agentOptions: {
+				rejectUnauthorized: false
+			}
+		};
+		
+		request.post(formAction, authOpts, function (err, httpResponse, body) {
+			if (err) {
+				console.error('[_tryDirectAuth] Direct auth failed: ', err);
+				callback(err);
+				return;
+			}
+			
+			console.log("[_tryDirectAuth] Direct auth response status: " + httpResponse.statusCode);
+			
+			if (httpResponse.statusCode === 200) {
+				console.log("[_tryDirectAuth] Direct authentication successful");
+				callback(null, jar);
+			} else {
+				console.log("[_tryDirectAuth] Direct authentication failed");
+				callback(new Error('Direct authentication failed'));
+			}
+		});
+	};
+
+	var _getPlants = function(jar, token, callback) {
+		var requestOpts = {
+			headers: {
+				'User-Agent': USERAGENT,
+				'Authorization': 'Bearer ' + token,
+				'Accept': 'application/json',
+			},
+			method: 'GET',
+			jar: jar,
+			gzip: true,
+			json: true,
+			agentOptions: {
 				rejectUnauthorized: false
 			},
 		}
 
-		request(url + OPEN_INVERTER_URL, requestOpts, function (err, httpResponse, body) {
+		request(url + PLANTS_URL, requestOpts, function (err, httpResponse, body) {
 			if (err) {
-				console.error('[_openInverter] Could not open inverter')
+				console.error('[_getPlants] Could not get plants list:', err);
 				callback(err);
+				return;
 			}
-			console.log("[_openInverter] HTTP Result: " + httpResponse.statusCode);
-			// Filter out value for the ctl00_HiddenPlantOID hidden parameter
-			plantOID = body.match(/<input type="hidden" name="ctl00\$HiddenPlantOID" id="ctl00_HiddenPlantOID" value="(.*)" \/>/)[1];
-			console.log("[_openInverter] Fetched ctl00_HiddenPlantOID value: " + plantOID);
-			callback(err, body);
-		});
-	};
-
-	var _setFileDate = function(datetype, month, day, year, jar, callback) {				
-
-		var requestOpts = {
-			headers : {
-				// We need to simulate a Browser which the SunnyPortal accepts...
-				'User-Agent' : USERAGENT,			
-			},
-			jar : jar,
-			gzip : true,
-			agentOptions : {
-				rejectUnauthorized : false
-			},
-			form : {
-				__EVENTTARGET : '',
-				__EVENTARGUMENT : '',
-				ctl00$ContentPlaceHolder1$UserControlShowInverterSelection1$DeviceSelection$HiddenPlantOID : plantOID,				 
-				ctl00$ContentPlaceHolder1$UserControlShowInverterSelection1$UseIntervalHour : '0',                 
-				ctl00$HiddenPlantOID : plantOID
-			},
-        };
-        // Depending on the datetype we are going to add the necessary hidden parameters to the form
-        if (datetype == 'day') {
-			requestOpts.form['ctl00$ContentPlaceHolder1$UserControlShowInverterSelection1$SelectedIntervalID'] = '3';
-			requestOpts.form['ctl00$ContentPlaceHolder1$UserControlShowInverterSelection1$_datePicker$textBox'] = month + '/' + day + '/' + year;
-        } else if (datetype == 'month') {
-            requestOpts.form['ctl00$ContentPlaceHolder1$UserControlShowInverterSelection1$SelectedIntervalID'] = '4';
-            requestOpts.form['ctl00$ContentPlaceHolder1$UserControlShowInverterSelection1$DatePickerMonth'] = month;
-            requestOpts.form['ctl00$ContentPlaceHolder1$UserControlShowInverterSelection1$DatePickerYear'] = year;
-        } else if (datetype == 'year') {
-            requestOpts.form['ctl00$ContentPlaceHolder1$UserControlShowInverterSelection1$SelectedIntervalID'] = '5';
-            requestOpts.form['ctl00$ContentPlaceHolder1$UserControlShowInverterSelection1$DatePickerYear'] = year;
-		} else if (datetype == 'total') {
-            requestOpts.form['ctl00$ContentPlaceHolder1$UserControlShowInverterSelection1$SelectedIntervalID'] = '6';
-		}
-
-		// If the datetype is day and the provided date is the current date, we may not post the SET_FILE_DATE_URL
-		var now = new Date();
-        if (datetype == 'day' && day == now.getDate() && month == now.getMonth()+1 && year == now.getFullYear()) {
-			console.log ("[_setFileDate] Skip setting date because we are requesting power data for today");
-			callback();
-		} else {
-			request.post(url + SET_FILE_DATE_URL, requestOpts, function (err, httpResponse, body) {
-				if (err) {
-					console.error('[_setFileDate] Setting File Date failed: ', err);
-					callback(err);
-					return ;
-				};
-			console.log("[_setFileDate] HTTP Result " + datetype + " for " + month + "/" + day +"/" + year + ": " + httpResponse.statusCode);
-			callback(err, body);
-		});
-		}
-	};
-
-	var _downloadResults = function(jar, datetype, callback) {
-		// This call is going to return a CSV file
-		var requestOpts = {
-			headers : {
-				// We need to simulate a Browser which the SunnyPortal accepts...
-				'User-Agent' : USERAGENT,
-			},
-			method : 'GET',
-			jar : jar,
-			gzip : true,
-			agentOptions : {
-				rejectUnauthorized : false
-			},
 			
+			console.log("[_getPlants] HTTP Result: " + httpResponse.statusCode);
+			
+			if (httpResponse.statusCode === 200 && body && body.length > 0) {
+				// Get the first plant ID
+				plantOID = body[0].id || body[0].plantId || body[0].oid;
+				console.log("[_getPlants] Found plant ID: " + plantOID);
+				callback(null, body);
+			} else {
+				console.error('[_getPlants] No plants found or invalid response');
+				callback(new Error('No plants found'));
+			}
+		});
+	};
+
+	var _getHistoricalData = function(datetype, month, day, year, jar, token, callback) {
+		var startDate, endDate;
+		var now = new Date();
+		
+		// Calculate date ranges based on data type
+		if (datetype === 'day') {
+			startDate = new Date(year, month - 1, day);
+			endDate = new Date(year, month - 1, day + 1);
+		} else if (datetype === 'month') {
+			startDate = new Date(year, month - 1, 1);
+			endDate = new Date(year, month, 1);
+		} else if (datetype === 'year') {
+			startDate = new Date(year, 0, 1);
+			endDate = new Date(year + 1, 0, 1);
+		} else if (datetype === 'total') {
+			// For total, get data from the beginning of the first year with data
+			startDate = new Date(year - 10, 0, 1);
+			endDate = new Date(year + 1, 0, 1);
 		}
 
-		request(url + DOWNLOAD_RESULTS_URL, requestOpts, function(err, httpResponse, body) {
+		var requestOpts = {
+			headers: {
+				'User-Agent': USERAGENT,
+				'Authorization': 'Bearer ' + token,
+				'Accept': 'application/json',
+			},
+			jar: jar,
+			gzip: true,
+			json: true,
+			agentOptions: {
+				rejectUnauthorized: false
+			}
+		};
+
+		// Build the API URL with parameters
+		var apiUrl = url + HISTORICAL_DATA_URL.replace('{plantId}', plantOID);
+		var queryParams = '?from=' + startDate.toISOString() + '&to=' + endDate.toISOString();
+		
+		if (datetype === 'day') {
+			queryParams += '&resolution=15min';
+		} else if (datetype === 'month') {
+			queryParams += '&resolution=day';
+		} else if (datetype === 'year') {
+			queryParams += '&resolution=month';
+		} else if (datetype === 'total') {
+			queryParams += '&resolution=year';
+		}
+
+		request.get(apiUrl + queryParams, requestOpts, function (err, httpResponse, body) {
 			if (err) {
-				console.error('[_downloadResults] CSV download for ' + datetype + ' failed: ', err);
+				console.error('[_getHistoricalData] Getting historical data failed: ', err);
 				callback(err);
-				return ;
-            };
-			console.log("[_downloadResults] HTTP Result for " + datetype + ": "+ httpResponse.statusCode);
-			callback(err, body);
+				return;
+			}
+			
+			console.log("[_getHistoricalData] HTTP Result " + datetype + " for " + month + "/" + day +"/" + year + ": " + httpResponse.statusCode);
+			
+			if (httpResponse.statusCode === 200) {
+				callback(null, body);
+			} else {
+				callback(new Error('Failed to get historical data: ' + httpResponse.statusCode));
+			}
 		});
-	}
+	};
+
+	var _processHistoricalData = function(datetype, data, month, day, year, callback) {
+		try {
+			var response = [[]];
+			var power = [];
+			var times = [];
+			var date;
+
+			console.log("[_processHistoricalData] Processing " + datetype + " data");
+			
+			if (!data || !data.measurements || !Array.isArray(data.measurements)) {
+				console.log("[_processHistoricalData] No measurements data found");
+				callback(null, [[], []]);
+				return;
+			}
+
+			// Process the measurements data
+			data.measurements.forEach(function(measurement) {
+				if (measurement.timestamp && (measurement.power !== undefined || measurement.energy !== undefined)) {
+					var timestamp = new Date(measurement.timestamp);
+					var value = measurement.power || measurement.energy || 0;
+					
+					// Convert energy to power for consistency (if needed)
+					if (measurement.energy !== undefined && measurement.power === undefined) {
+						// For energy measurements, convert to average power
+						value = parseFloat(value);
+					} else {
+						value = parseFloat(value) || 0;
+					}
+
+					times.push(timestamp);
+					power.push(value);
+				}
+			});
+
+			response[0] = times;
+			response[1] = power;
+			
+			console.log("[_processHistoricalData] Processed " + times.length + " data points for " + datetype);
+			callback(null, response);
+			
+		} catch (error) {
+			console.error('[_processHistoricalData] Error processing data:', error);
+			callback(error);
+		}
+	};
 
 	/**
 	* Returns the current production at this moment in time.
 	*
 	* @method currentProduction
-	* @param {Number} month
-	* @param {Number} day
-	* @param {Number} year
 	* @param {Function} callback A callback function once current production is received.  Will return a JSON object of the current status.
 	*/
 	var currentProduction = function(callback) {
@@ -274,144 +391,124 @@ var SunnyPortal = function(opts) {
 			function() {
 				_login('current', this);	
 			},
-			function(err, body) {
-	
+			function(err, jar) {
+				if (err) {
+					callback(err);
+					return;
+				}
+
 				var requestOpts = {
-					headers : {
-						// We need to simulate a Browser which the SunnyPortal accepts...
-						'User-Agent' : USERAGENT,
+					headers: {
+						'User-Agent': USERAGENT,
+						'Accept': 'application/json, text/javascript, */*; q=0.01',
+						'X-Requested-With': 'XMLHttpRequest'
 					},
-					method : 'GET',
-					jar : jar,
-					gzip : true,
-					agentOptions : {
-						rejectUnauthorized : false
+					method: 'GET',
+					jar: jar,
+					gzip: true,
+					agentOptions: {
+						rejectUnauthorized: false
 					},		
 				}
 
-				// The timestamp is just ignored. Using 1.
-				request(url + CURRENT_PRODUCTION_URL, requestOpts, function (err, httpResponse, body) {
-					if (err) {
-						console.error('[currentProduction] Could not get current production')
-						callback(err);
+				// Try different potential current production endpoints
+				var endpoints = [
+					'/api/v1/powerflow/livedata',
+					'/api/powerflow/livedata', 
+					'/dashboard/livedata',
+					'/api/dashboard/current',
+					'/live'
+				];
+
+				var tryEndpoint = function(index) {
+					if (index >= endpoints.length) {
+						callback(new Error('No working current production endpoint found'));
+						return;
 					}
-					callback(err, JSON.parse(body));
-				});
+
+					var endpoint = endpoints[index];
+					console.log("[currentProduction] Trying endpoint: " + endpoint);
+
+					request(url + endpoint, requestOpts, function (err, httpResponse, body) {
+						if (err) {
+							console.log('[currentProduction] Endpoint ' + endpoint + ' failed: ' + err.message);
+							tryEndpoint(index + 1);
+							return;
+						}
+						
+						if (httpResponse.statusCode === 200) {
+							console.log('[currentProduction] Successfully retrieved current production data from: ' + endpoint);
+							try {
+								var data = typeof body === 'string' ? JSON.parse(body) : body;
+								callback(null, data);
+							} catch (parseError) {
+								console.log('[currentProduction] Failed to parse JSON from ' + endpoint);
+								tryEndpoint(index + 1);
+							}
+						} else {
+							console.log('[currentProduction] Endpoint ' + endpoint + ' returned status: ' + httpResponse.statusCode);
+							tryEndpoint(index + 1);
+						}
+					});
+				};
+
+				tryEndpoint(0);
 			}
 		);
-	
 	};
 
 	/**
 	* Returns historical production for a given day.
 	*
-    * @method historicalProduction
-    * @param {String} datetype Determins if we need to fetch day, month or year data
+	* @method historicalProduction
+	* @param {String} datetype Determines if we need to fetch day, month or year data
 	* @param {Number} month
 	* @param {Number} day
 	* @param {Number} year
-	* @param {Function} callback A callback function once historical production is recieved. Will return a JSON object of the days production.
+	* @param {Function} callback A callback function once historical production is received. Will return a JSON object of the days production.
 	*/
 	var historicalProduction = function(datetype, month, day, year, callback) {
-		// Due to app dependencies, you cannot just download the document.  
-		// You need to crawl the application such that items get added to your session.  
-		// Then you may download the days data.
-		//
-		// You could make this more efficient by not logging in everytime but... I just wanted something quick and dirty.
-		var finalJar;
+		var finalJar, finalToken;
+		
 		flow.exec(
 			function() {
 				_login(datetype, this);
 			},
-			function(err, jar) {
-				finalJar = jar;
-				_openInverter(finalJar, this);
-			},
-			function(err, body) {
-                _setFileDate(datetype, month, day, year, finalJar, this);
-			},
-			function(err, body) {
-				_downloadResults(finalJar, datetype, this);
-			},
-			function(err, body) {
-				var response = [[]];
-                var power = [];
-                var times = [];
-                var date;
-                var lineItems = body.split('\n');
-
-                // Skip the first line of the CSV file. It is a header as the example shows below
-                // Day CSV result 
-				// ;SB1.5-1VL-40 966 / Power / Mean Values  [kW]0
-				// 12:15 AM;
-                // 12:30 AM;
-                // 12:45 AM;0.453
-
-                // Month CSV result
-                // ;SB1.5-1VL-40 966 / Data logger object energy / Meter Change  [kWh]0
-                // 1/1/20;0.124
-                // 1/2/20;0.358
-                // 1/3/20;0.157
-
-                // Year CSV result
-                // ;SB1.5-1VL-40 966 / Data logger object energy / Meter Change  [kWh]0
-                // Jan 20;4.824
-                // Feb 20;
-                // Mar 20;
-				console.log("Downloaded the following RAW data for " + datetype);
-				console.log(body);
-				for(i=1; i<lineItems.length; i++) {
-					var entries = lineItems[i].split(';');
-					if(entries[0] && entries[1]) {
-                        if (datetype == 'day') {
-						    var ampm = entries[0].split(' ')[1];
-						    var time = entries[0].split(' ')[0];
-						    var hour = parseInt(time.split(':')[0]);
-						    var minute = parseInt(time.split(':')[1]);
-
-						    if (ampm == 'PM' && hour < 12) {
-							    hour += 12;
-						    }
-						    if (ampm == 'AM' && hour == 12) {
-							    hour = 0;
-                            }
-
-                            //We need to substract 1 from the month because in Javascript: January=0 in Sunnyportal: January=1;
-						    date = new Date(year, month-1, day, hour, minute);
-						    // If set to midnight the next day, add another day. Their response is messed up
-						    if (hour == 0 && minute == 0) {
-							    date.setDate(date.getDate() + 1);
-						    }
-                        } else if (datetype == 'month') {
-                            var d = entries[0].split('/')[1];
-                            // I'm only interested in the day value...we are going to use the parameter value for month and year
-                            date = new Date(year, month - 1 , d, 12, 0); // Using ISO Format
-                        } else if (datetype == 'year') {
-                            var m = entries[0].split(' ')[0];
-                            // Because only the last 2 digits of the year are returned we are going to use the year parameter value... 
-                            // we could prepend the returned value with 20...but then the script will fail in the next century ;)
-                            var months = [
-                                'Jan', 'Feb', 'Mar', 'Apr', 'May',
-                                'Jun', 'Jul', 'Aug', 'Sep',
-                                'Oct', 'Nov', 'Dec'
-                                ];
-                            date = new Date (year,months.indexOf(m), 1, 12, 0);
-                        } else if  (datetype == 'total') {
-							// We do not need an actual date, because entries[0] already contains the year data values.
-							date = entries[0];
-						}
-                        // Add the date results to the array
-                        times.push(date);
-                        // Add the power results to the array
-                        power.push(isNaN(parseFloat(entries[1])) ? 0 : parseFloat(entries[1]));
-					}
+			function(err, jar, token) {
+				if (err) {
+					callback(err);
+					return;
 				}
-                response[0] = times;
-                response[1] = power;
-				callback(err, response);
+				finalJar = jar;
+				finalToken = token;
+				_getPlants(finalJar, finalToken, this);
+			},
+			function(err, plants) {
+				if (err) {
+					callback(err);
+					return;
+				}
+				_getHistoricalData(datetype, month, day, year, finalJar, finalToken, this);
+			},
+			function(err, data) {
+				if (err) {
+					callback(err);
+					return;
+				}
+				_processHistoricalData(datetype, data, month, day, year, this);
+			},
+			function(err, processedData) {
+				if (err) {
+					console.error('[historicalProduction] Error processing historical data:', err);
+					callback(err);
+					return;
+				}
+				
+				console.log("[historicalProduction] Successfully processed " + datetype + " data");
+				callback(null, processedData);
 			}
 		);
-    };
+	};
 
 	return {
 		currentProduction : currentProduction,

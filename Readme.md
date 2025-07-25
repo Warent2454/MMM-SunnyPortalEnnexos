@@ -1,15 +1,17 @@
-## MagicMirror Module: SunnyPortal
+## MagicMirror Module: SunnyPortal (Ennexos)
 
-Display your SunnyPortal Solar Panel Inverter output
+Display your Ennexos SunnyPortal Solar Panel Inverter output
 
 | Status | Version | Date | 
 |:------- |:------- |:---- |
-| Working | 1.4.0 | 2021-01-03 |
+| Updated | 1.5.0 | 2025-07-24 |
 
 #### What is this module doing?
 
 *MMM-SunnyPortal* is a [MagicMirror](https://github.com/MichMich/MagicMirror) module for displaying the 
-current, monthly, yearly and total power output of your SunnyPortal Solar Panels. 
+current, monthly, yearly and total power output of your SunnyPortal Solar Panels from the new Ennexos platform. 
+
+**Note: This module has been updated to work with the new Ennexos SunnyPortal at https://ennexos.sunnyportal.com/**
 
 ### Example Screenshots
 
@@ -17,7 +19,7 @@ Module Screenshot:
 
 ![Full](./images/SunnyPortal1.png)
 
-The displayed data shown above is fetched through the SunnyPortal website [SunnyPortal](https://www.sunnyportal.com)
+The displayed data shown above is fetched through the new Ennexos SunnyPortal website [Ennexos SunnyPortal](https://ennexos.sunnyportal.com)
 
 ![Full](./images/SunnyPortal2.png)
 
@@ -30,7 +32,8 @@ This module depends on the following *npm* packages:
 * [request](https://github.com/request/request)  - Simplified HTTP client
 * [flow](https://github.com/willconant/flow-js)  - Makes it easy to express multi-step asynchronous logic in Node or the browser
 * [chartjs](https://github.com/chartjs/Chart.js) - Simple yet flexible JavaScript charting for designers & developers.
-* [sslkeylog](https://www.npmjs.com/package/sslkeylog) - sslkeylog is a module for easy generation of SSLKEYLOG files, which can be used later by Wireshark to decrypt SSL connections.
+* [axios](https://github.com/axios/axios) - Promise based HTTP client for the browser and Node.js
+* [dotenv](https://github.com/motdotla/dotenv) - Loads environment variables from .env file
 
 These are also listed in the `package.json` file and should be installed automatically when using *npm*.
 However, those may require other packages. 
@@ -53,6 +56,8 @@ Next install the dependencies: *request*, *flow* and *chartjs*, by running:
 npm install request --save
 npm install flow --save
 npm install chart.js --save
+npm install axios --save
+npm install dotenv --save
 
 ```
 
@@ -83,10 +88,10 @@ Add this module to the modules array in the `config/config.js` file by adding th
     position: 'bottom_left',
     header: 'Solar Panels',
     config: {
-    	url: 'https://www.sunnyportal.com',
+    	url: 'https://ennexos.sunnyportal.com',
         updateInterval: 900,
-        username: '',             //Required: Your Sunnyportal Username
-        password: '',             //Required: Your Sunnyportal Password
+        username: '',             //Required: Your Ennexos SunnyPortal Username
+        password: '',             //Required: Your Ennexos SunnyPortal Password
         width: 500,
         height: 400,
         chartcolor1: '#121212',
@@ -103,10 +108,10 @@ Add this module to the modules array in the `config/config.js` file by adding th
 
 | Option            | Description  |
 |:----------------- |:------------ | 
-| url               | An alternative URL to the SunnyPortal website.<br>*Optional*<br>*Default value:* https://www.sunnyportal.com |
+| url               | An alternative URL to the Ennexos SunnyPortal website.<br>*Optional*<br>*Default value:* https://ennexos.sunnyportal.com |
 | updateInterval    | Module data update rate. [in seconds]<br>*Optional*<br>*Default and minimum value:* `900` (a lower value is ignored)|
-| username          | Your Sunnyportal `'Username'`<br>**Required** |
-| password          | Your SunnyPortal `'Password'`<br>**Required** |
+| username          | Your Ennexos SunnyPortal `'Username'`<br>**Required** |
+| password          | Your Ennexos SunnyPortal `'Password'`<br>**Required** |
 | width             | The width of the module.<br>*Optional*<br>*Default value:* `500` |
 | height            | The height of the module.<br>*Optional*<br>*Default value:* `400` |
 | chartcolor1<br>chartcolor2 | The graphs have a gradient color. You can set chartcolor1 and chartcolor2 to any HEX code, HTML name or RGB code.<br>Set both to the same color code to have a solid graph without a gradient.<br>*Optional, example values:* `'red'`, `'#FF00FF'`, `'rgb(255,255,255)'`<br>*Default values:* chartcolor1: `'#121212'`, chartcolor2: `'#909090'` |

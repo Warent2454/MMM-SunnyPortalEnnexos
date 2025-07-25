@@ -24,6 +24,7 @@ Module.register("MMM-SunnyPortal",{
 	  includeGraphs: ['all'], //Default ['all'] (uses default order) or define an array with 1-4 elements like: ['day', 'month', 'year', 'total']
 	},
 
+	
   
 	// Define required scripts. Chart.js needed for the graph.
 	getScripts: function() {

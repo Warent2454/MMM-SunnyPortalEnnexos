@@ -421,6 +421,9 @@ module.exports = NodeHelper.create({
                 // Map found values to standard names
                 let powerValues = [];
                 let energyValues = [];
+                let voltageValues = [];
+                let currentValues = [];
+                let percentageValues = [];
                 
                 for (const [key, value] of Object.entries(foundValues)) {
                     const keyLower = key.toLowerCase();
@@ -436,11 +439,14 @@ module.exports = NodeHelper.create({
                         powerValues.push(value);
                         solarData[`power_w_${powerValues.length}`] = value;
                     } else if (keyLower.includes('v')) {
-                        solarData.voltage = value;
+                        voltageValues.push(value);
+                        solarData[`voltage_${voltageValues.length}`] = value;
                     } else if (keyLower.includes('a')) {
-                        solarData.current = value;
+                        currentValues.push(value);
+                        solarData[`current_${currentValues.length}`] = value;
                     } else if (keyLower.includes('%')) {
-                        solarData.efficiency = value;
+                        percentageValues.push(value);
+                        solarData[`percentage_${percentageValues.length}`] = value;
                     }
                     
                     // Also keep the raw value
@@ -460,8 +466,39 @@ module.exports = NodeHelper.create({
                     console.log(`[${this.name}] ⚡ Daily Energy: ${solarData.dailyEnergy}kWh (from ${energyValues.length} energy values)`);
                 }
                 
+                if (voltageValues.length > 0) {
+                    solarData.voltage = Math.max(...voltageValues);
+                    console.log(`[${this.name}] ⚡ System Voltage: ${solarData.voltage}V (from ${voltageValues.length} voltage readings)`);
+                }
+                
+                if (currentValues.length > 0) {
+                    solarData.current = Math.max(...currentValues);
+                    console.log(`[${this.name}] 🔌 System Current: ${solarData.current}A (from ${currentValues.length} current readings)`);
+                }
+                
+                if (percentageValues.length > 0) {
+                    solarData.efficiency = Math.max(...percentageValues);
+                    console.log(`[${this.name}] 📊 System Efficiency: ${solarData.efficiency}% (from ${percentageValues.length} percentage values)`);
+                }
+                
+                // Add some estimated values if we have voltage/current but no power
+                if (voltageValues.length > 0 && currentValues.length > 0 && powerValues.length === 0) {
+                    // Estimate power from voltage and current (P = V * I)
+                    const estimatedPower = solarData.voltage * solarData.current;
+                    solarData.currentPower = estimatedPower;
+                    solarData.estimatedFromVI = true;
+                    console.log(`[${this.name}] 🧮 Estimated Power: ${estimatedPower}W (from V×I calculation)`);
+                }
+                
                 // Add some mock values if we have any real data to make it "meaningful"
-                if (powerValues.length > 0 || energyValues.length > 0) {
+                if (powerValues.length > 0 || energyValues.length > 0 || voltageValues.length > 0) {
+                    if (!solarData.dailyEnergy && solarData.currentPower > 0) {
+                        // Rough estimate: assume 6 hours of sun per day
+                        solarData.dailyEnergy = (solarData.currentPower / 1000) * 6;
+                        solarData.estimatedDaily = true;
+                        console.log(`[${this.name}] 📊 Estimated Daily Energy: ${solarData.dailyEnergy}kWh (from current power)`);
+                    }
+                    
                     solarData.totalEnergy = (solarData.dailyEnergy || 0) * 365; // Rough estimate
                     solarData.monthlyEnergy = (solarData.dailyEnergy || 0) * 30; // Rough estimate
                     solarData.yearlyEnergy = (solarData.dailyEnergy || 0) * 365; // Rough estimate
@@ -469,6 +506,7 @@ module.exports = NodeHelper.create({
                     console.log(`[${this.name}] 📊 Generated additional fields based on found data`);
                 }
                 
+                console.log(`[${this.name}] 🎯 Final solar data object:`, Object.keys(solarData));
                 return solarData;
             }
 
@@ -498,15 +536,18 @@ module.exports = NodeHelper.create({
         // Check for specific solar data fields
         const hasPower = data.currentPower !== undefined && data.currentPower > 0;
         const hasEnergy = data.dailyEnergy !== undefined && data.dailyEnergy >= 0;
+        const hasVoltage = data.voltage !== undefined && data.voltage > 0;
+        const hasCurrent = data.current !== undefined && data.current > 0;
+        const hasEfficiency = data.efficiency !== undefined && data.efficiency > 0;
         const hasAnyValues = dataFields.length > 0;
         
-        console.log(`[${this.name}] 🔍 Data analysis: ${dataFields.length} fields, Power: ${hasPower}, Energy: ${hasEnergy}`);
+        console.log(`[${this.name}] 🔍 Data analysis: ${dataFields.length} fields, Power: ${hasPower}, Energy: ${hasEnergy}, Voltage: ${hasVoltage}, Current: ${hasCurrent}, Efficiency: ${hasEfficiency}`);
         
-        // Consider data meaningful if we have power, energy, or any solar-related values
-        const isMeaningful = hasPower || hasEnergy || hasAnyValues;
+        // Consider data meaningful if we have any solar-related measurements
+        const isMeaningful = hasPower || hasEnergy || hasVoltage || hasCurrent || hasEfficiency || hasAnyValues;
         
         if (isMeaningful) {
-            console.log(`[${this.name}] ✅ Data considered meaningful: Fields found = ${dataFields.join(', ')}`);
+            console.log(`[${this.name}] ✅ Data considered meaningful: Fields found = ${dataFields.slice(0, 10).join(', ')}${dataFields.length > 10 ? '...' : ''}`);
         } else {
             console.log(`[${this.name}] ❌ Data not considered meaningful`);
         }

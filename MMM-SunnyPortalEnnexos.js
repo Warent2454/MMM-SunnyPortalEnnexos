@@ -10,7 +10,7 @@ Module.register("MMM-SunnyPortalEnnexos", {
     defaults: {
         username: "",
         password: "",
-        updateInterval: 300000, // 5 minutes
+        updateInterval: 1800000, // 30 minutes
         retryDelay: 30000, // 30 seconds
         animationSpeed: 2000,
         authMethod: "cookies", // "cookies" or "browser" (not yet implemented)

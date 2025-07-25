@@ -324,13 +324,13 @@ module.exports = NodeHelper.create({
 
             // Look for various JSON data patterns in HTML
             const jsonPatterns = [
-                /window\.data\s*=\s*(\{.*?\});/s,
-                /window\.initialData\s*=\s*(\{.*?\});/s,
-                /window\.APP_DATA\s*=\s*(\{.*?\});/s,
-                /var\s+data\s*=\s*(\{.*?\});/s,
-                /const\s+data\s*=\s*(\{.*?\});/s,
-                /let\s+data\s*=\s*(\{.*?\});/s,
-                /"data":\s*(\{.*?\})/s,
+                /window\.data\s*=\s*(\{.*?\});/gs,
+                /window\.initialData\s*=\s*(\{.*?\});/gs,
+                /window\.APP_DATA\s*=\s*(\{.*?\});/gs,
+                /var\s+data\s*=\s*(\{.*?\});/gs,
+                /const\s+data\s*=\s*(\{.*?\});/gs,
+                /let\s+data\s*=\s*(\{.*?\});/gs,
+                /"data":\s*(\{.*?\})/gs,
                 /data-value="([^"]+)"/gi,
                 /data-power="([^"]+)"/gi,
                 /data-energy="([^"]+)"/gi,
@@ -339,8 +339,16 @@ module.exports = NodeHelper.create({
             ];
             
             for (const pattern of jsonPatterns) {
-                const matches = html.matchAll ? html.matchAll(pattern) : [html.match(pattern)].filter(Boolean);
-                if (matches) {
+                let matches;
+                try {
+                    matches = Array.from(html.matchAll(pattern));
+                } catch (e) {
+                    // Fallback for older browsers or regex issues
+                    const singleMatch = html.match(pattern);
+                    matches = singleMatch ? [singleMatch] : [];
+                }
+                
+                if (matches && matches.length > 0) {
                     for (const match of matches) {
                         if (!match[1]) continue;
                         
@@ -391,7 +399,19 @@ module.exports = NodeHelper.create({
                 for (const table of tables) {
                     // Extract numbers from table cells
                     const cellPattern = /<td[^>]*>(.*?)<\/td>/gi;
-                    const cells = table.matchAll ? table.matchAll(cellPattern) : [];
+                    let cells;
+                    try {
+                        cells = Array.from(table.matchAll(cellPattern));
+                    } catch (e) {
+                        // Fallback for regex issues
+                        const allMatches = [];
+                        let match;
+                        const regex = new RegExp(cellPattern.source, cellPattern.flags);
+                        while ((match = regex.exec(table)) !== null) {
+                            allMatches.push(match);
+                        }
+                        cells = allMatches;
+                    }
                     
                     for (const cell of cells) {
                         const cellText = cell[1].replace(/<[^>]*>/g, '').trim();

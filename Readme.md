@@ -1,53 +1,232 @@
-## MagicMirror Module: SunnyPortal (Ennexos)
+# MMM-SunnyPortalEnnexos
 
-Display your Ennexos SunnyPortal Solar Panel Inverter output
+🌞 **MagicMirror Module for Ennexos SunnyPortal Solar Data**
 
-| Status | Version | Date | 
-|:------- |:------- |:---- |
-| Updated | 1.5.0 | 2025-07-24 |
+Display real-time solar panel data from the new Ennexos SunnyPortal platform using cookie-based authentication.
 
-#### What is this module doing?
+| Status | Version | Date | Platform |
+|:------- |:------- |:---- |:-------- |
+| ✅ Working | 2.0.0 | 2025-07-25 | Ennexos SunnyPortal |
 
-*MMM-SunnyPortal* is a [MagicMirror](https://github.com/MichMich/MagicMirror) module for displaying the 
-current, monthly, yearly and total power output of your SunnyPortal Solar Panels from the new Ennexos platform. 
+## 🚀 Features
 
-**Note: This module has been updated to work with the new Ennexos SunnyPortal at https://ennexos.sunnyportal.com/**
+- ✅ **Compatible with new Ennexos platform** (https://ennexos.sunnyportal.com)
+- 🍪 **Cookie-based authentication** for reliable long-term access
+- ⚡ **Real-time power generation** display
+- 🔋 **Energy yield tracking** (daily, monthly, yearly, total)
+- 📊 **System status monitoring**
+- 🎨 **Customizable display options**
+- 🔄 **Automatic data refresh**
+- 🛡️ **Robust error handling** with retry logic
 
-### Example Screenshots
+## 🆕 What's New in v2.0
 
-Module Screenshot:
+This module has been completely rebuilt to work with the **new Ennexos SunnyPortal** platform:
 
-![Full](./images/SunnyPortal1.png)
+- **Cookie-based authentication** replaces the old login system
+- **Modern Angular SPA support** for the new Ennexos interface  
+- **Enhanced data parsing** to extract solar metrics from HTML responses
+- **Improved error handling** with graceful fallbacks
+- **Long-term stability** (cookies last 365+ days)
+- **Comprehensive documentation** and setup guides
 
-The displayed data shown above is fetched through the new Ennexos SunnyPortal website [Ennexos SunnyPortal](https://ennexos.sunnyportal.com)
+## 📸 Screenshots
 
-![Full](./images/SunnyPortal2.png)
+### Module Display
+![Solar Panel Data Display](./images/SunnyPortal1.png)
+
+The module displays real-time solar data in a clean, organized format:
+- ⚡ **Power Generation** - Current and peak power output
+- 🔋 **Energy Production** - Daily, monthly, and total yields  
+- 📊 **System Status** - Online status and efficiency metrics
+- ⏰ **Last Update** - Timestamp of latest data refresh
+
+![Module Configuration](./images/SunnyPortal2.png)
+
+Data is fetched from the **Ennexos SunnyPortal** at [ennexos.sunnyportal.com](https://ennexos.sunnyportal.com)
 
 ---
 
-### Dependencies
+## 🛠️ Installation
 
-This module depends on the following *npm* packages:
+### Prerequisites
 
-* [request](https://github.com/request/request)  - Simplified HTTP client
-* [flow](https://github.com/willconant/flow-js)  - Makes it easy to express multi-step asynchronous logic in Node or the browser
-* [chartjs](https://github.com/chartjs/Chart.js) - Simple yet flexible JavaScript charting for designers & developers.
-* [axios](https://github.com/axios/axios) - Promise based HTTP client for the browser and Node.js
-* [dotenv](https://github.com/motdotla/dotenv) - Loads environment variables from .env file
+- **MagicMirror²** installation
+- **Node.js** and **npm**
+- **Ennexos SunnyPortal account** with solar panel data
 
-These are also listed in the `package.json` file and should be installed automatically when using *npm*.
-However, those may require other packages. 
-
----
-
-### Installation
-
-Manual Installation:
+### Quick Installation
 
 ```bash
 cd ~/MagicMirror/modules
-git clone https://github.com/linuxtuxie/MMM-SunnyPortal.git
-cd MMM-SunnyPortal
+git clone https://github.com/Warent2454/MMM-SunnyPortalEnnexos.git
+cd MMM-SunnyPortalEnnexos
+npm install
+```
+
+### Setup Process
+
+1. **Install the module** (see above)
+2. **Extract authentication cookies** (see [Cookie Setup](#cookie-setup))
+3. **Configure the module** (see [Configuration](#configuration))
+4. **Add to MagicMirror config** (see [MagicMirror Setup](#magicmirror-setup))
+
+---
+
+## 🍪 Cookie Setup
+
+The module uses cookie-based authentication for reliable access to Ennexos data.
+
+### Step 1: Login to Ennexos
+1. Open your browser and go to [ennexos.sunnyportal.com](https://ennexos.sunnyportal.com)
+2. Log in with your credentials
+3. Wait for the dashboard to fully load
+
+### Step 2: Extract Cookies
+
+#### Method A: Browser Developer Tools
+1. Press **F12** to open Developer Tools
+2. Go to **Application** → **Cookies** → `https://ennexos.sunnyportal.com`
+3. Copy all cookie values
+4. Format as: `name1=value1; name2=value2; name3=value3`
+
+#### Method B: Browser Extension
+1. Install a "cookies.txt" browser extension
+2. Export cookies for `ennexos.sunnyportal.com`
+3. Save the exported content
+
+### Step 3: Create Cookie File
+Create a file called `cookies.txt` in the module directory:
+
+```
+__cmpcc=1; __cmpconsentx137893=YOUR_CONSENT_VALUE; _ga=YOUR_GA_VALUE; _ga_M03X504MKH=YOUR_ANALYTICS_VALUE
+```
+
+**🔒 Security Note:** Keep your `cookies.txt` file secure and never commit it to version control.
+
+---
+
+## ⚙️ Configuration
+
+### Basic Configuration
+
+Add this to your `config/config.js` file:
+
+```javascript
+{
+    module: "MMM-SunnyPortalEnnexos",
+    position: "top_right", // Choose your preferred position
+    config: {
+        // Required
+        cookieFile: "cookies.txt",
+        
+        // Optional - Display settings
+        updateInterval: 300000, // 5 minutes
+        showTitle: true,
+        showStatus: true,
+        showPower: true,
+        showEnergy: true,
+        showDetails: true,
+        
+        // Optional - Formatting
+        title: "Solar Portal",
+        tableClass: "small", // small, medium, large
+        decimalPlaces: 1
+    }
+}
+```
+
+### Advanced Configuration
+
+```javascript
+{
+    module: "MMM-SunnyPortalEnnexos",
+    position: "top_right",
+    config: {
+        // Authentication
+        cookieFile: "cookies.txt",
+        username: "your-email@example.com", // For reference only
+        
+        // Update intervals
+        updateInterval: 300000,  // 5 minutes in milliseconds
+        retryDelay: 30000,       // 30 seconds retry delay
+        
+        // Display options
+        showTitle: true,
+        showStatus: true,
+        showPower: true,
+        showEnergy: true,
+        showDetails: true,
+        
+        // Formatting
+        title: "🌞 Solar Portal",
+        powerUnit: "W",
+        energyUnit: "kWh", 
+        decimalPlaces: 1,
+        tableClass: "small",
+        
+        // API endpoints (advanced users)
+        apiEndpoints: [
+            "/dashboard/data",
+            "/live/data",
+            "/plants/data"
+        ]
+    }
+}
+```
+
+---
+
+## 🎛️ Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `cookieFile` | String | `"cookies.txt"` | **Required.** Path to cookie file |
+| `updateInterval` | Number | `300000` | Update frequency in milliseconds |
+| `retryDelay` | Number | `30000` | Delay before retrying failed requests |
+| `showTitle` | Boolean | `true` | Show module title |
+| `showStatus` | Boolean | `true` | Show connection status |
+| `showPower` | Boolean | `true` | Show power generation data |
+| `showEnergy` | Boolean | `true` | Show energy yield data |
+| `showDetails` | Boolean | `true` | Show additional system details |
+| `title` | String | `"Solar Portal"` | Custom module title |
+| `tableClass` | String | `"small"` | Table size: small, medium, large |
+| `decimalPlaces` | Number | `1` | Number of decimal places |
+| `powerUnit` | String | `"W"` | Power unit for display |
+| `energyUnit` | String | `"kWh"` | Energy unit for display |
+
+---
+
+## 🖥️ MagicMirror Setup
+
+1. **Add the module** to your `config/config.js`
+2. **Restart MagicMirror**
+3. **Verify the display** shows solar data
+4. **Check logs** for any authentication issues
+
+### Example Full Config
+
+```javascript
+let config = {
+    modules: [
+        // ... other modules
+        {
+            module: "MMM-SunnyPortalEnnexos",
+            position: "top_right",
+            config: {
+                cookieFile: "cookies.txt",
+                updateInterval: 300000,
+                title: "🌞 Solar Power",
+                showPower: true,
+                showEnergy: true,
+                tableClass: "small"
+            }
+        }
+    ]
+};
+```
+
+---
 ```
 
 Next install the dependencies: *request*, *flow* and *chartjs*, by running:
@@ -68,70 +247,142 @@ chmod 755 install_deps.sh
 ./install_deps.sh
 ```
 
+## 🔧 Dependencies
+
+This module uses modern dependencies for reliable operation:
+
+```json
+{
+  "axios": "^1.7.7",
+  "fs": "built-in",
+  "path": "built-in"
+}
+```
+
+- **[axios](https://github.com/axios/axios)** - Modern HTTP client for API requests
+- **fs** - Built-in Node.js file system module
+- **path** - Built-in Node.js path utilities
+
+All dependencies are automatically installed via `npm install`.
+
 ---
 
-### Configuration 
+## 🛠️ Troubleshooting
 
-To configure the SunnyPortal module, you need to do the following:
+### Common Issues
 
-1. Add the Module to the global MagicMirror `config.js` 
-2. Edit the global config to add the username and password values for your SunnyPortal installation
-3. [optional] Modify `MMM-SunnyPortal.css` to your own CSS taste
-4. [optional] Add your own language translation file in the translations folder (currently english, dutch, french and german are provided)
+#### ❌ "Authentication Failed" Error
+**Cause:** Cookies have expired or are invalid
+**Solution:** 
+1. Re-extract cookies from your browser
+2. Update the `cookies.txt` file
+3. Restart MagicMirror
 
+#### ❌ "No Data Available" Display
+**Cause:** API endpoints not returning expected data
+**Solution:**
+1. Check MagicMirror logs for errors
+2. Verify your Ennexos account has solar data
+3. Test cookie validity manually
 
-Add this module to the modules array in the `config/config.js` file by adding the following example section.<br>You must include your SunnyPortal username and password, you can edit the config to include any of the configuration options described below. 
+#### ❌ Module Not Loading
+**Cause:** Configuration or installation issues
+**Solution:**
+1. Check `config.js` syntax
+2. Verify module path is correct
+3. Run `npm install` in module directory
 
-```javascript
-{
-    module: 'MMM-SunnyPortal',
-    position: 'bottom_left',
-    header: 'Solar Panels',
-    config: {
-    	url: 'https://ennexos.sunnyportal.com',
-        updateInterval: 900,
-        username: '',             //Required: Your Ennexos SunnyPortal Username
-        password: '',             //Required: Your Ennexos SunnyPortal Password
-        width: 500,
-        height: 400,
-        chartcolor1: '#121212',
-        chartcolor2: '#909090',
-        convertUnits: true,
-        includeGraphs: ['all'],
-    }
-},
+### Cookie Maintenance
+
+**Expected Cookie Lifespan:** 365+ days (very stable!)
+
+Your cookies are primarily tracking cookies which last for months or years. However, if authentication fails:
+
+1. **Re-extract cookies** from your browser
+2. **Update cookies.txt** file  
+3. **Restart MagicMirror**
+
+### Debugging
+
+Enable debugging by checking MagicMirror logs:
+
+```bash
+# View MagicMirror logs
+tail -f ~/.pm2/logs/MagicMirror-out.log
+
+# Or check module-specific logs
+grep "MMM-SunnyPortalEnnexos" ~/.pm2/logs/MagicMirror-out.log
 ```
 
 ---
 
-#### Configuration Options 
+## 🤝 Contributing
 
-| Option            | Description  |
-|:----------------- |:------------ | 
-| url               | An alternative URL to the Ennexos SunnyPortal website.<br>*Optional*<br>*Default value:* https://ennexos.sunnyportal.com |
-| updateInterval    | Module data update rate. [in seconds]<br>*Optional*<br>*Default and minimum value:* `900` (a lower value is ignored)|
-| username          | Your Ennexos SunnyPortal `'Username'`<br>**Required** |
-| password          | Your Ennexos SunnyPortal `'Password'`<br>**Required** |
-| width             | The width of the module.<br>*Optional*<br>*Default value:* `500` |
-| height            | The height of the module.<br>*Optional*<br>*Default value:* `400` |
-| chartcolor1<br>chartcolor2 | The graphs have a gradient color. You can set chartcolor1 and chartcolor2 to any HEX code, HTML name or RGB code.<br>Set both to the same color code to have a solid graph without a gradient.<br>*Optional, example values:* `'red'`, `'#FF00FF'`, `'rgb(255,255,255)'`<br>*Default values:* chartcolor1: `'#121212'`, chartcolor2: `'#909090'` |
-| convertUnits      | Convert kwH to MWh if needed<br>*Optional, possible values:* `true`, `false`<br>*Default value:* `true` |
-| includeGraphs     | Takes an array with the graphs to include.<br>The array can have 1, 2, 3 or 4 elements.<br>Using `['All']` is equal to `['Day', 'Month', 'Year', 'Total']`<br>Example: `['Month', 'Day']` displays the 2 graphs in that order<br>*Possible values:* `['all']` or any combination of `['day', 'month', 'year', 'total']` (case insensitive)<br>*Default* `['All']`|
+Contributions are welcome! Please feel free to submit issues, feature requests, or pull requests.
 
-> :warning: Please do not edit the module files to use an **updateInterval** shorter than 15 minutes (900 seconds).
-> A lower setting can lockout your account on the SunnyPortal URL. The power output on SMA SunnyPortal is always
-> calculated in a time interval of 15 minutes...so there is no need to update in a shorter time interval!
-> There is a check to have a minimum value of 900 seconds. Any lower value is ignored.
+### Development Setup
 
-#### Contribution
+```bash
+git clone https://github.com/Warent2454/MMM-SunnyPortalEnnexos.git
+cd MMM-SunnyPortalEnnexos
+npm install
+```
 
-Feel free to post issues or remarks related to this module.  
-For all other or general questions, please refer to the [MagicMirror Forum](https://forum.magicmirror.builders/).
+### Project Structure
 
-#### Credits
-I based the code on mkorthuis's [sunnyportal-api](https://github.com/mkorthuis/sunnyportal-api/)
+```
+MMM-SunnyPortalEnnexos/
+├── MMM-SunnyPortal.js          # Main module file
+├── node_helper.js              # Backend data fetcher  
+├── MMM-SunnyPortal.css        # Styling
+├── package.json               # Dependencies
+├── cookies.txt                # Your authentication cookies
+├── translations/              # Language files
+│   ├── en.json
+│   ├── de.json
+│   ├── fr.json
+│   └── nl.json
+└── images/                    # Screenshots
+    ├── SunnyPortal1.png
+    └── SunnyPortal2.png
+```
 
-#### License 
+---
 
-[MIT License](https://github.com/linuxtuxie/MMM-SunnyPortal/blob/master/LICENSE) 
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- **Original MMM-SunnyPortal** by [linuxtuxie](https://github.com/linuxtuxie)
+- **MagicMirror²** framework by [MichMich](https://github.com/MichMich/MagicMirror)
+- **SMA/Ennexos** for providing the solar portal platform
+
+---
+
+## 📧 Support
+
+For issues, questions, or support:
+
+1. **Check the [Troubleshooting](#troubleshooting) section**
+2. **Search existing [GitHub Issues](https://github.com/Warent2454/MMM-SunnyPortalEnnexos/issues)**
+3. **Create a new issue** with detailed information
+4. **Include logs and configuration** for faster resolution
+
+---
+
+## 🔄 Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 2.0.0 | 2025-07-25 | Complete rebuild for Ennexos platform |
+| 1.5.0 | 2025-07-24 | Updated for new SunnyPortal |
+| 1.x.x | Earlier | Original SunnyPortal versions |
+
+---
+
+**🌞 Happy Solar Monitoring! ⚡** 
 

@@ -190,10 +190,10 @@ module.exports = NodeHelper.create({
                     console.log(`[${self.name}] ❌ Endpoint not found: ${endpoint}`);
                 }
                 
-                // Try next endpoint
+                // Try next endpoint with longer delay
                 setTimeout(() => {
                     self.tryEndpoints(endpoints, cookies, index + 1, config);
-                }, 500); // Small delay between requests
+                }, 2000); // Increased delay to 2 seconds between requests
             })
             .catch(error => {
                 if (error.code === 'ECONNABORTED') {
@@ -206,10 +206,10 @@ module.exports = NodeHelper.create({
                     console.log(`[${self.name}] ❌ Error for ${endpoint}:`, error.message);
                 }
                 
-                // Try next endpoint
+                // Try next endpoint with longer delay
                 setTimeout(() => {
                     self.tryEndpoints(endpoints, cookies, index + 1, config);
-                }, 500);
+                }, 2000); // Increased delay between requests
             });
     },
 

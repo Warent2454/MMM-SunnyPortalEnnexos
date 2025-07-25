@@ -26,6 +26,14 @@ Module.register("MMM-SunnyPortalEnnexos", {
         showPower: true,
         showEnergy: true,
         showDetails: true,
+        showDaily: true,
+        showMonthly: true,
+        showYearly: true,
+        showTotal: true,
+        showLastUpdate: true,
+        showVoltage: true,
+        showCurrent: true,
+        showEfficiency: true,
         title: "Solar Portal",
         powerUnit: "W",
         energyUnit: "kWh",
@@ -41,7 +49,7 @@ Module.register("MMM-SunnyPortalEnnexos", {
         this.retryCount = 0;
         this.maxRetries = 5;
         
-        this.scheduleUpdate();
+        this.scheduleUpdate(true); // true = allow immediate first load
     },
 
     getStyles: function() {
@@ -57,7 +65,7 @@ Module.register("MMM-SunnyPortalEnnexos", {
         };
     },
 
-    scheduleUpdate: function() {
+    scheduleUpdate: function(immediate = false) {
         const self = this;
         
         // Clear any existing timeout
@@ -65,13 +73,18 @@ Module.register("MMM-SunnyPortalEnnexos", {
             clearTimeout(this.updateTimer);
         }
         
+        // If immediate is true, get data now, otherwise wait for the interval
+        if (immediate && !this.solarData) {
+            // Only get immediate data if we don't have any data yet
+            setTimeout(() => {
+                self.getSolarData();
+            }, 2000); // 2 second delay even for initial load
+        }
+        
         // Schedule next update
         this.updateTimer = setTimeout(() => {
             self.getSolarData();
         }, this.config.updateInterval);
-        
-        // Get initial data
-        this.getSolarData();
     },
 
     getSolarData: function() {
@@ -89,8 +102,8 @@ Module.register("MMM-SunnyPortalEnnexos", {
             this.retryCount = 0;
             this.updateDom();
             
-            // Schedule next update
-            this.scheduleUpdate();
+            // Schedule next update (no immediate call)
+            this.scheduleUpdate(false);
             
         } else if (notification === "SOLAR_DATA_ERROR") {
             this.error = payload;
@@ -99,8 +112,8 @@ Module.register("MMM-SunnyPortalEnnexos", {
             Log.error(`[${this.name}] Error: ${payload.message}`);
             
             if (this.retryCount < this.maxRetries) {
-                // Retry with exponential backoff
-                const retryDelay = Math.min(30000 * Math.pow(2, this.retryCount), 300000); // Max 5 minutes
+                // Retry with exponential backoff - minimum 60 seconds
+                const retryDelay = Math.max(60000, Math.min(30000 * Math.pow(2, this.retryCount), 300000)); // Min 1 minute, Max 5 minutes
                 Log.info(`[${this.name}] Retry ${this.retryCount}/${this.maxRetries} in ${retryDelay/1000} seconds`);
                 
                 setTimeout(() => {
@@ -108,7 +121,7 @@ Module.register("MMM-SunnyPortalEnnexos", {
                 }, retryDelay);
             } else {
                 Log.error(`[${this.name}] Max retries reached. Scheduling next regular update.`);
-                this.scheduleUpdate();
+                this.scheduleUpdate(false); // No immediate call
             }
             
             this.updateDom();
@@ -200,6 +213,52 @@ Module.register("MMM-SunnyPortalEnnexos", {
             table.appendChild(row);
         }
 
+        // System voltage
+        if (this.config.showVoltage && this.solarData.voltage !== undefined) {
+            const row = this.createDataRow(
+                "System Voltage", 
+                this.formatVoltage(this.solarData.voltage)
+            );
+            table.appendChild(row);
+        }
+
+        // System current
+        if (this.config.showCurrent && this.solarData.current !== undefined) {
+            const row = this.createDataRow(
+                "System Current", 
+                this.formatCurrent(this.solarData.current)
+            );
+            table.appendChild(row);
+        }
+
+        // System efficiency
+        if (this.config.showEfficiency && this.solarData.efficiency !== undefined) {
+            const row = this.createDataRow(
+                "Efficiency", 
+                this.solarData.efficiency.toFixed(1) + "%"
+            );
+            table.appendChild(row);
+        }
+
+        // If no standard data, show some raw values for debugging
+        if (table.children.length === 0 && this.solarData) {
+            const dataKeys = Object.keys(this.solarData).filter(key => !key.startsWith('_'));
+            if (dataKeys.length > 0) {
+                // Show first few meaningful values
+                for (let i = 0; i < Math.min(5, dataKeys.length); i++) {
+                    const key = dataKeys[i];
+                    const value = this.solarData[key];
+                    if (typeof value === 'number' && value > 0) {
+                        const row = this.createDataRow(
+                            key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                            this.formatValue(value, key)
+                        );
+                        table.appendChild(row);
+                    }
+                }
+            }
+        }
+
         wrapper.appendChild(table);
 
         // Show last update time
@@ -246,6 +305,48 @@ Module.register("MMM-SunnyPortalEnnexos", {
             return (energy / 1000).toFixed(2) + " MWh";
         }
         return energy.toFixed(2) + " kWh";
+    },
+
+    formatVoltage: function(voltage) {
+        if (voltage === null || voltage === undefined) return "-";
+        
+        if (voltage >= 1000) {
+            return (voltage / 1000).toFixed(2) + " kV";
+        }
+        return voltage.toFixed(1) + " V";
+    },
+
+    formatCurrent: function(current) {
+        if (current === null || current === undefined) return "-";
+        
+        if (current >= 1000) {
+            return (current / 1000).toFixed(2) + " kA";
+        }
+        return current.toFixed(1) + " A";
+    },
+
+    formatValue: function(value, key) {
+        if (value === null || value === undefined) return "-";
+        
+        const keyLower = key.toLowerCase();
+        
+        if (keyLower.includes('v') && keyLower.includes('voltage')) {
+            return this.formatVoltage(value);
+        } else if (keyLower.includes('a') && keyLower.includes('current')) {
+            return this.formatCurrent(value);
+        } else if (keyLower.includes('w') && !keyLower.includes('wh')) {
+            return this.formatPower(value);
+        } else if (keyLower.includes('wh') || keyLower.includes('energy')) {
+            return this.formatEnergy(value);
+        } else if (keyLower.includes('%') || keyLower.includes('percentage')) {
+            return value.toFixed(1) + "%";
+        } else if (keyLower.includes('_v')) {
+            return this.formatVoltage(value);
+        } else if (keyLower.includes('_a')) {
+            return this.formatCurrent(value);
+        } else {
+            return value.toFixed(1);
+        }
     }
 });
   
